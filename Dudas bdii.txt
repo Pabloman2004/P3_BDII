@@ -1,0 +1,8 @@
+Dudas bdii
+
+Como cambiar la categorizacion.
+
+Hay que crear un indice mas, la vista actualizable esta mal.
+
+
+
