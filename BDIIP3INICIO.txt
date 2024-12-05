@@ -294,12 +294,21 @@ CREATE OR REPLACE FUNCTION medicamentos_por_departamento(codDept IN VARCHAR)
 RETURN NUMBER
 IS
     resultado NUMBER;
+    existe NUMBER;
 BEGIN
+    SELECT COUNT(*) INTO existe
+    FROM DEPARTAMENTO
+    WHERE CODIGO=codDept;
+
+    IF existe = 0 THEN
+    RAISE_APPLICATION_ERROR(-20001, 'Código de departamento inválido');
+    END IF;
+
     SELECT COUNT(CODIGO) INTO resultado
     FROM MEDICAMENTO M
     WHERE COD_DEPARTAMENTO = codDept;
-
     RETURN resultado;
-END;
+END medicamentos_por_departamento;
 /
+show errors;
 
