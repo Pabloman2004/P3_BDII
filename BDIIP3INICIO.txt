@@ -366,24 +366,32 @@ INSERT INTO FARMACIA (ID, DIRECCION, NOMBRE, TELEFONO, FECHA_INICIO, FECHA_FIN, 
 VALUES (101, 'CALLE BOTICA 456','BOTICA', '914567890',TO_DATE('2024-05-03', 'YYYY-MM-DD'), TO_DATE('2024-05-02', 'YYYY-MM-DD'), 2234);
 
 
-CREATE OR REPLACE FUNCTION medicamentos_por_departamento(codDept IN VARCHAR)
+CREATE OR REPLACE FUNCTION medicamentos_por_departamento(
+    codDept IN VARCHAR
+)
 RETURN NUMBER
 IS
     resultado NUMBER;
     existe NUMBER;
 BEGIN
-    SELECT COUNT(*) INTO existe
+    SELECT COUNT(*) 
+    INTO existe
     FROM DEPARTAMENTO
-    WHERE CODIGO=codDept;
+    WHERE CODIGO = codDept;
+
     IF existe = 0 THEN
-    RAISE_APPLICATION_ERROR(-20001, 'Código de departamento inválido');
+        RAISE_APPLICATION_ERROR(-20001, 'Código de departamento inválido');
     END IF;
-    SELECT COUNT(CODIGO) INTO resultado
+
+    SELECT COUNT(CODIGO) 
+    INTO resultado
     FROM MEDICAMENTO M
     WHERE COD_DEPARTAMENTO = codDept;
+
     RETURN resultado;
 END medicamentos_por_departamento;
 /
+
 
 
 CREATE OR REPLACE FUNCTION SumaSalariosDept(nomDept IN VARCHAR)
@@ -408,7 +416,9 @@ CREATE OR REPLACE PROCEDURE listar_trabajadores_supervisados(
     p_supervisor_id IN INT
 )
 IS
-    -- Declaramos el cursor explícito con producto cartesiano
+    INVALID_SUPERVISOR EXCEPTION; 
+    NO_EMPLOYEES_FOUND EXCEPTION; 
+
     CURSOR c_trabajadores IS
         SELECT T.ID, T.NOMBRE, T.APELLIDOS
         FROM TRABAJADOR T, INVESTIGADOR_DEPARTAMENTO ID, DEPARTAMENTO D
@@ -417,37 +427,74 @@ IS
           AND D.ID_DIRIGE = p_supervisor_id
           AND T.ID != p_supervisor_id;  -- Excluimos al supervisor de los resultados
 
-    -- Variable para almacenar los resultados del cursor
     trabajador c_trabajadores%ROWTYPE;
+
+    num_trabajadores NUMBER := 0;
 BEGIN
-    -- Abrir el cursor
+    DECLARE
+        supervisor_count NUMBER;
+    BEGIN
+        SELECT COUNT(*) INTO supervisor_count
+        FROM DEPARTAMENTO
+        WHERE ID_DIRIGE = p_supervisor_id;
+
+        IF supervisor_count = 0 THEN
+            RAISE INVALID_SUPERVISOR;
+        END IF;
+    END;
+
     OPEN c_trabajadores;
 
-    -- Procesar los resultados fila por fila
     LOOP
-        FETCH c_trabajadores INTO trabajador;  -- Obtener la siguiente fila del cursor
-        EXIT WHEN c_trabajadores%NOTFOUND;  -- Salir cuando no haya más filas
+        FETCH c_trabajadores INTO trabajador; 
+        EXIT WHEN c_trabajadores%NOTFOUND;  
 
-        -- Mostrar los resultados
+        num_trabajadores := num_trabajadores + 1;
+
         DBMS_OUTPUT.PUT_LINE('ID: ' || trabajador.ID || ' - Nombre: ' || trabajador.NOMBRE || ' ' || trabajador.APELLIDOS);
     END LOOP;
 
-    -- Cerrar el cursor
     CLOSE c_trabajadores;
-END;
+
+    IF num_trabajadores = 0 THEN
+        RAISE NO_EMPLOYEES_FOUND;
+    END IF;
+
+EXCEPTION
+    WHEN INVALID_SUPERVISOR THEN
+        DBMS_OUTPUT.PUT_LINE('Error: El supervisor con ID ' || p_supervisor_id || ' no existe.');
+
+    WHEN NO_EMPLOYEES_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Error: No se encontraron empleados supervisados por el supervisor con ID ' || p_supervisor_id || '.');
+
+    WHEN OTHERS THEN
+        IF c_trabajadores%ISOPEN THEN
+            CLOSE c_trabajadores;
+        END IF;
+        DBMS_OUTPUT.PUT_LINE('Error inesperado: ' || SQLERRM);
+END listar_trabajadores_supervisados;
 /
+
 
 CREATE OR REPLACE PROCEDURE listar_medicamentos_por_tipo(
     p_tipo IN VARCHAR
 )
 IS
+    TIPO_MEDICAMENTO_EXCEPTION EXCEPTION;
+
     CURSOR c_medicamentos IS
         SELECT CODIGO, DESCRIPCION, FECHA_CADUCIDAD
         FROM MEDICAMENTO
         WHERE TIPO = p_tipo;
 
     medicamento c_medicamentos%ROWTYPE;
+
+    numMed NUMBER := 0;
 BEGIN
+    IF p_tipo IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'El tipo de medicamento no puede ser NULL.');
+    END IF;
+
     OPEN c_medicamentos;
 
     LOOP
@@ -457,13 +504,30 @@ BEGIN
         DBMS_OUTPUT.PUT_LINE('Código: ' || medicamento.CODIGO || 
                              ', Descripción: ' || medicamento.DESCRIPCION ||
                              ', Fecha de Caducidad: ' || TO_CHAR(medicamento.FECHA_CADUCIDAD, 'YYYY-MM-DD'));
+        numMed := numMed + 1;
     END LOOP;
 
     CLOSE c_medicamentos;
-END;
+
+    IF numMed = 0 THEN
+        RAISE TIPO_MEDICAMENTO_EXCEPTION;
+    END IF;
+
+EXCEPTION
+    WHEN TIPO_MEDICAMENTO_EXCEPTION THEN
+        RAISE_APPLICATION_ERROR(-20002, 'No se encontraron medicamentos del tipo especificado.');
+    WHEN OTHERS THEN
+
+        IF c_medicamentos%ISOPEN THEN
+            CLOSE c_medicamentos;
+        END IF;
+        RAISE; 
+END listar_medicamentos_por_tipo;
 /
 
+
 --SENTENCIAS DE DEFINICIÓN DE BLOQUES DE PRUEBAS BEGIN
+
 
 DECLARE
     -- Variables para almacenar resultados
@@ -471,24 +535,54 @@ DECLARE
     sumaSalarios NUMBER;
     salarioPromedio NUMBER;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('--- Ejecutando medicamentos_por_departamento ---');
-    numMedicamentos := medicamentos_por_departamento('D001');
-    DBMS_OUTPUT.PUT_LINE('Número de medicamentos en el departamento D001: ' || numMedicamentos);
+    -- Ejecutando medicamentos_por_departamento
+    BEGIN
+        DBMS_OUTPUT.PUT_LINE('--- Ejecutando medicamentos_por_departamento ---');
+        numMedicamentos := medicamentos_por_departamento('D001');
+        DBMS_OUTPUT.PUT_LINE('Número de medicamentos en el departamento D001: ' || numMedicamentos);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('[ERROR EN medicamentos_por_departamento]');
+            DBMS_OUTPUT.PUT_LINE('[CÓDIGO]: ' || SQLCODE);
+            DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
+    END;
 
-    DBMS_OUTPUT.PUT_LINE('--- Ejecutando SumaSalariosDept ---');
-    sumaSalarios := SumaSalariosDept('INVESTIGACIÓN');
-    DBMS_OUTPUT.PUT_LINE('Suma de salarios en el departamento INVESTIGACIÓN: ' || sumaSalarios);
+    -- Ejecutando SumaSalariosDept
+    BEGIN
+        DBMS_OUTPUT.PUT_LINE('--- Ejecutando SumaSalariosDept ---');
+        sumaSalarios := SumaSalariosDept('INVESTIGACIÓN');
+        DBMS_OUTPUT.PUT_LINE('Suma de salarios en el departamento INVESTIGACIÓN: ' || sumaSalarios);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('[ERROR EN SumaSalariosDept]');
+            DBMS_OUTPUT.PUT_LINE('[CÓDIGO]: ' || SQLCODE);
+            DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
+    END;
 
-    DBMS_OUTPUT.PUT_LINE('--- Ejecutando listar_trabajadores_supervisados ---');
-    listar_trabajadores_supervisados(3);
-    DBMS_OUTPUT.PUT_LINE('Trabajadores supervisados listados.');
+    -- Ejecutando listar_trabajadores_supervisados
+    BEGIN
+        DBMS_OUTPUT.PUT_LINE('--- Ejecutando listar_trabajadores_supervisados ---');
+        listar_trabajadores_supervisados(3);
+        DBMS_OUTPUT.PUT_LINE('Trabajadores supervisados listados.');
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('[ERROR EN listar_trabajadores_supervisados]');
+            DBMS_OUTPUT.PUT_LINE('[CÓDIGO]: ' || SQLCODE);
+            DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
+    END;
 
-    DBMS_OUTPUT.PUT_LINE('--- Ejecutando listar_medicamentos_por_tipo ---');
-    listar_medicamentos_por_tipo('ANTIBIOTICO');
-    DBMS_OUTPUT.PUT_LINE('Medicamentos de tipo VACUNA listados.');
+    -- Ejecutando listar_medicamentos_por_tipo
+    BEGIN
+        DBMS_OUTPUT.PUT_LINE('--- Ejecutando listar_medicamentos_por_tipo ---');
+        listar_medicamentos_por_tipo('ANTIBIOTICO');  -- Corrección en el mensaje
+        DBMS_OUTPUT.PUT_LINE('Medicamentos de tipo ANTIBIOTICO listados.');
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('[ERROR EN listar_medicamentos_por_tipo]');
+            DBMS_OUTPUT.PUT_LINE('[CÓDIGO]: ' || SQLCODE);
+            DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
+    END;
 
-EXCEPTION
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Ocurrió un error: ' || SQLERRM);
 END;
 /
+
