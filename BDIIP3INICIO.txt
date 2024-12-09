@@ -423,20 +423,24 @@ END medicamentos_por_departamento;
 
 
 CREATE OR REPLACE FUNCTION SumaSalariosDept(nomDept IN VARCHAR)
-RETURN NUMBER
-IS
-   sumaSalarios NUMBER;
+RETURN NUMBER IS sumaSalarios NUMBER;
 BEGIN
    IF nomDept IS NULL THEN
       RAISE_APPLICATION_ERROR(-20001, 'El Departamento suministrado no existe');
    END IF;
    
-   SELECT SUM(SAL) INTO sumaSalarios
+   SELECT SUM(SALARIO) INTO sumaSalarios
       FROM DEPARTAMENTO D, INVESTIGADOR_DEPARTAMENTO  I, TRABAJADOR T 
       WHERE D.CODIGO=I.CODIGO_DEPARTAMENTO AND I.ID_INVESTIGADOR=T.ID AND D.NOMBRE=nomDept;
+    
+    IF sumaSalarios IS NULL THEN
+        sumaSalarios := 0;
+    END IF;
+
    RETURN sumaSalarios;
 END SumaSalariosDept;
 /
+
 
 
 
