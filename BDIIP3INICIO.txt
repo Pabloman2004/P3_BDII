@@ -615,7 +615,7 @@ BEGIN
     -- Ejecutando SumaSalariosDept
     BEGIN
         DBMS_OUTPUT.PUT_LINE('--- Ejecutando SumaSalariosDept ---');
-        sumaSalarios := SumaSalariosDept('INVESTIGACIÓN');
+        sumaSalarios := SumaSalariosDept('INVESTIGACIÓN QUÍMICA');
         DBMS_OUTPUT.PUT_LINE('Suma de salarios en el departamento INVESTIGACIÓN: ' || sumaSalarios);
     EXCEPTION
         WHEN OTHERS THEN
