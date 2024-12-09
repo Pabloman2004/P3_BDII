@@ -309,7 +309,7 @@ INSERT INTO MEDICAMENTO (CODIGO, FECHA_CADUCIDAD, FECHA_CREACION, FARMACIA_ID, C
 VALUES ('M002', TO_DATE('2026-07-30', 'YYYY-MM-DD'), TO_DATE('2024-05-23', 'YYYY-MM-DD'), 101, 2234, 'ANALGÉSICO PARA EL DOLOR', 'ANALGESICO', 1, 'D001');
 
 INSERT INTO MEDICAMENTO (CODIGO, FECHA_CADUCIDAD, FECHA_CREACION, FARMACIA_ID, CAMIONERO_ID, DESCRIPCION, TIPO, SUPERVISOR, COD_DEPARTAMENTO)
-VALUES ('M005', TO_DATE('2025-12-15', 'YYYY-MM-DD'), TO_DATE('2023-06-10', 'YYYY-MM-DD'), 102, 2235, 'ANALGÉSICO PARA DOLORES MUSCULARES', 'ANALGESICO', 2, 'D002');
+VALUES ('M005', TO_DATE('2024-12-15', 'YYYY-MM-DD'), TO_DATE('2023-06-10', 'YYYY-MM-DD'), 102, 2235, 'ANALGÉSICO PARA DOLORES MUSCULARES', 'ANALGESICO', 2, 'D002');
 
 INSERT INTO MEDICAMENTO (CODIGO, FECHA_CADUCIDAD, FECHA_CREACION, FARMACIA_ID, CAMIONERO_ID, DESCRIPCION, TIPO, SUPERVISOR, COD_DEPARTAMENTO)
 VALUES ('M006', TO_DATE('2026-03-20', 'YYYY-MM-DD'), TO_DATE('2023-01-05', 'YYYY-MM-DD'), 101, 2236, 'ANALGÉSICO CONTRA EL DOLOR DE CABEZA', 'ANALGESICO', 1, 'D001');
@@ -553,6 +553,25 @@ EXCEPTION
 END listar_medicamentos_por_tipo;
 /
 
+CREATE OR REPLACE FUNCTION medicamentos_proximos_a_caducar(dias INT)
+RETURN VARCHAR2
+IS
+    CURSOR c_medicamentos IS
+        SELECT CODIGO, DESCRIPCION, FECHA_CADUCIDAD
+        FROM MEDICAMENTO
+        WHERE FECHA_CADUCIDAD <= SYSDATE + dias;
+    resultado VARCHAR2(4000) := '';
+BEGIN
+    FOR medicamento IN c_medicamentos LOOP
+        resultado := resultado || 'Código: ' || medicamento.CODIGO || 
+                      ', Descripción: ' || medicamento.DESCRIPCION ||
+                      ', Fecha de Caducidad: ' || TO_CHAR(medicamento.FECHA_CADUCIDAD, 'YYYY-MM-DD') || CHR(10);
+    END LOOP;
+    RETURN resultado;
+END medicamentos_proximos_a_caducar;
+/
+
+
 --SENTENCIAS DE DEFINICIÓN DE BLOQUES DE PRUEBAS BEGIN
 
 
@@ -561,6 +580,7 @@ DECLARE
     numMedicamentos NUMBER;
     sumaSalarios NUMBER;
     salarioPromedio NUMBER;
+    proximosMedicamentos VARCHAR2(4000);
 BEGIN
     -- Ejecutando medicamentos_por_departamento
     BEGIN
@@ -610,6 +630,20 @@ BEGIN
             DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
     END;
 
+    -- Ejecutando medicamentos_proximos_a_caducar
+    BEGIN
+        DBMS_OUTPUT.PUT_LINE('--- Ejecutando medicamentos_proximos_a_caducar ---');
+        proximosMedicamentos := medicamentos_proximos_a_caducar(30);
+        DBMS_OUTPUT.PUT_LINE('Medicamentos próximos a caducar en los próximos 30 días:');
+        DBMS_OUTPUT.PUT_LINE(proximosMedicamentos);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('[ERROR EN medicamentos_proximos_a_caducar]');
+            DBMS_OUTPUT.PUT_LINE('[CÓDIGO]: ' || SQLCODE);
+            DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
+    END;
+
 END;
 /
+
 
