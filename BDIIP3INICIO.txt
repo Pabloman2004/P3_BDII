@@ -430,7 +430,7 @@ IS
 BEGIN
     
    IF nomDept IS NULL THEN
-      RAISE_APPLICATION_ERROR(-20001, 'El Departamento suministrado no existe');
+      RAISE_APPLICATION_ERROR(-20001, 'Valor de campo nulo');
    END IF;    
 
     SELECT COUNT(*) 
@@ -439,7 +439,7 @@ BEGIN
     WHERE NOMBRE = nomDept;
 
     IF existe = 0 THEN
-        RAISE_APPLICATION_ERROR(-20001, 'Código de departamento inválido');
+        RAISE_APPLICATION_ERROR(-20001, 'Nombre de departamento inválido');
     END IF;
 
    
