@@ -431,14 +431,12 @@ BEGIN
       RAISE_APPLICATION_ERROR(-20001, 'El Departamento suministrado no existe');
    END IF;
    
-   SELECT SUM(SAL) INTO sumaSalarios
+   SELECT SUM(SALARIO) INTO sumaSalarios
       FROM DEPARTAMENTO D, INVESTIGADOR_DEPARTAMENTO  I, TRABAJADOR T 
       WHERE D.CODIGO=I.CODIGO_DEPARTAMENTO AND I.ID_INVESTIGADOR=T.ID AND D.NOMBRE=nomDept;
    RETURN sumaSalarios;
 END SumaSalariosDept;
 /
-
-
 
 CREATE OR REPLACE PROCEDURE listar_trabajadores_supervisados(
     p_supervisor_id IN INT
@@ -572,8 +570,36 @@ END medicamentos_proximos_a_caducar;
 /
 
 
---SENTENCIAS DE DEFINICIÓN DE BLOQUES DE PRUEBAS BEGIN
+CREATE OR REPLACE FUNCTION medicamentos_por_camionero(
+    p_camionero_id INT
+)
+RETURN VARCHAR2
+IS
+    CURSOR c_medicamentos IS
+        SELECT M.CODIGO, M.DESCRIPCION, F.NOMBRE AS FARMACIA
+        FROM MEDICAMENTO M, FARMACIA F
+        WHERE M.FARMACIA_ID = F.ID
+          AND M.CAMIONERO_ID = p_camionero_id;
 
+    resultado VARCHAR2(4000) := '';
+BEGIN
+    -- Recorrer el cursor para obtener medicamentos
+    FOR registro IN c_medicamentos LOOP
+        resultado := resultado || 'Código: ' || registro.CODIGO || 
+                      ', Descripción: ' || registro.DESCRIPCION || 
+                      ', Farmacia: ' || registro.FARMACIA || CHR(10);
+    END LOOP;
+
+    -- Verificar si no hay medicamentos
+    IF resultado IS NULL THEN
+        RETURN 'El camionero con ID ' || p_camionero_id || ' no ha transportado medicamentos.';
+    END IF;
+
+    RETURN resultado;
+END medicamentos_por_camionero;
+/
+
+--SENTENCIAS DE DEFINICIÓN DE BLOQUES DE PRUEBAS BEGIN
 
 DECLARE
     -- Variables para almacenar resultados
@@ -581,6 +607,7 @@ DECLARE
     sumaSalarios NUMBER;
     salarioPromedio NUMBER;
     proximosMedicamentos VARCHAR2(4000);
+    medicamentosCamionero VARCHAR2(4000);
 BEGIN
     -- Ejecutando medicamentos_por_departamento
     BEGIN
@@ -639,6 +666,19 @@ BEGIN
     EXCEPTION
         WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('[ERROR EN medicamentos_proximos_a_caducar]');
+            DBMS_OUTPUT.PUT_LINE('[CÓDIGO]: ' || SQLCODE);
+            DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
+    END;
+
+    -- Ejecutando medicamentos_por_camionero
+    BEGIN
+        DBMS_OUTPUT.PUT_LINE('--- Ejecutando medicamentos_por_camionero ---');
+        medicamentosCamionero := medicamentos_por_camionero(2236);
+        DBMS_OUTPUT.PUT_LINE('Medicamentos transportados por el camionero con ID 2236:');
+        DBMS_OUTPUT.PUT_LINE(medicamentosCamionero);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('[ERROR EN medicamentos_por_camionero]');
             DBMS_OUTPUT.PUT_LINE('[CÓDIGO]: ' || SQLCODE);
             DBMS_OUTPUT.PUT_LINE('[MENSAJE]: ' || SQLERRM);
     END;
