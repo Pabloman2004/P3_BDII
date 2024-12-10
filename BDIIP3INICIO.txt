@@ -423,17 +423,34 @@ END medicamentos_por_departamento;
 
 
 CREATE OR REPLACE FUNCTION SumaSalariosDept(nomDept IN VARCHAR)
-RETURN NUMBER
+RETURN NUMBER 
 IS
-   sumaSalarios NUMBER;
+    sumaSalarios NUMBER;
+    existe NUMBER;
 BEGIN
+    
    IF nomDept IS NULL THEN
-      RAISE_APPLICATION_ERROR(-20001, 'El Departamento suministrado no existe');
-   END IF;
+      RAISE_APPLICATION_ERROR(-20001, 'Valor de campo nulo');
+   END IF;    
+
+    SELECT COUNT(*) 
+    INTO existe
+    FROM DEPARTAMENTO
+    WHERE NOMBRE = nomDept;
+
+    IF existe = 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Nombre de departamento inválido');
+    END IF;
+
    
    SELECT SUM(SALARIO) INTO sumaSalarios
       FROM DEPARTAMENTO D, INVESTIGADOR_DEPARTAMENTO  I, TRABAJADOR T 
       WHERE D.CODIGO=I.CODIGO_DEPARTAMENTO AND I.ID_INVESTIGADOR=T.ID AND D.NOMBRE=nomDept;
+    
+    IF sumaSalarios IS NULL THEN
+        sumaSalarios := 0;
+    END IF;
+
    RETURN sumaSalarios;
 END SumaSalariosDept;
 /
@@ -624,7 +641,7 @@ BEGIN
     -- Ejecutando SumaSalariosDept
     BEGIN
         DBMS_OUTPUT.PUT_LINE('--- Ejecutando SumaSalariosDept ---');
-        sumaSalarios := SumaSalariosDept('INVESTIGACIÓN');
+        sumaSalarios := SumaSalariosDept('INVESTIGACIÓN QUÍMICA');
         DBMS_OUTPUT.PUT_LINE('Suma de salarios en el departamento INVESTIGACIÓN: ' || sumaSalarios);
     EXCEPTION
         WHEN OTHERS THEN
